@@ -11,16 +11,17 @@ price_including_tax_list = []
 price_excluding_tax_list = []
 number_available_list = []
 product_description_list = []
-category_list = []
+category_list_repeated = []
+category_list = [] #I need this for the csv files creation
 review_rating_list = []
 image_src_list = []
-dictionary = {}
-##
+# Starting the program
 r = requests.get("https://books.toscrape.com/index.html")
 base_url = "https://books.toscrape.com/index.html"
 soup_obj_principal_pg = BeautifulSoup(r.content, "html.parser")
 categories = soup_obj_principal_pg.find("ul", attrs={'class': None})
 url_of_pages_list = []
+# Get all the links of all the pages in the different categories
 for link in categories.find_all('a'):
     href_of_categories_pg1 = link.get('href')
     url_of_pages = (urljoin(base_url, href_of_categories_pg1))
@@ -44,17 +45,17 @@ for link in categories.find_all('a'):
                     break
     if not html_soup.find('ul', {'class': 'pager'}):
         continue
-
+# To prove everything went ok with the pages
 print(url_of_pages_list)
 for item in range(len(url_of_pages_list)):
     response = requests.get(url_of_pages_list[item])
     soup_obj_every_pg = BeautifulSoup(response.content, "html.parser")
     books_url = soup_obj_every_pg.find('ol', attrs={'class': 'row'})
+    # Used set() to get the information only once
     allLinks = set()
     for book_in_page in books_url.find_all('a'):
         href_of_books = book_in_page.get('href')
         url_of_books = (urljoin(response.url, href_of_books))
-        #
         r2 = requests.get(url_of_books)
         # The part I added to get the links once
         if r2.url not in allLinks:
@@ -65,6 +66,7 @@ for item in range(len(url_of_pages_list)):
             soup_p3 = BeautifulSoup(r2.content, "html.parser")
             table_gen = soup_p3.find(class_="table table-striped")
             items_gen = table_gen.find_all("td")
+            #
             universal_pr_code = [items_gen[0].get_text()][-1]
             print("universal_product_code =", universal_pr_code)
             universal_product_code_l = universal_product_code_list.append(universal_pr_code)
@@ -91,11 +93,14 @@ for item in range(len(url_of_pages_list)):
             print('description =', description)
             product_description_l = product_description_list.append(description)
             # category
-            category_1_gen = soup_p3.find("ul", attrs={'class': 'breadcrumb'})
-            category_gen = category_1_gen.find_all("a")
-            category_ = [category_gen[2].get_text().strip()][-1]
-            print("category=", category_)
-            category_l = category_list.append(category_)
+            category = soup_p3.find_all('li')
+            category_ = category[2].find('a').string
+            print("category =", category_)
+            # The list I used in the panda DataFrame
+            category_li = category_list_repeated.append(category_)
+            # A way to get a list without repetitions to use to create the csv files
+            if category_ not in category_list:
+                category_l = category_list.append(category_)
             # Ratings
             star_rating = soup_p3.find("p", attrs={'class': 'star-rating'})
             stars_ = star_rating['class']
@@ -107,13 +112,13 @@ for item in range(len(url_of_pages_list)):
             image_gen = soup_p3.find("div", attrs={'class': 'item active'})
             image_source = image_gen.find('img', src=True)
             image_ = image_source["src"][6:]
-            image_url_comp = "https://books.toscrape.com/"+ image_
+            image_url_comp = "https://books.toscrape.com/" + image_
             image_src = image_src_list.append(image_url_comp)
             print("image_url_ =", image_url_comp)
             #
 
         allLinks.add(r2.url)
-    #
+
 # Created the file of pages
 if not os.path.exists("Photos_books"):
     os.makedirs("Photos_books")
@@ -123,8 +128,7 @@ if not os.path.exists("Photos_books"):
         file_name = path + "/Photos_books/" + img_name
         r = requests.get(image_src_list[i], allow_redirects=True)
         open(file_name, 'wb').write(r.content)
-
-#def information_books():
+# Created a DataFrame with pandas
 book_information = pd.DataFrame({
     'product_page_url': product_page_url_list,
     'universal_product_code': universal_product_code_list,
@@ -133,16 +137,13 @@ book_information = pd.DataFrame({
     'price_excluding_tax': price_excluding_tax_list,
     'number_available': number_available_list,
     'product_description': product_description_list,
-    'category': category_list,
+    'category': category_list_repeated,
     'review_rating': review_rating_list,
     'image_url': image_src_list})
-    #return book_information
-book_information.to_csv('book.csv')
-df = pd.read_csv('book.csv')
-#trying to fix everything
-category_l = []
-for item in range(50):
-    category_2 = category_l.append(category_list[item])
-for i in range(50):
-    var_x = df[(df['category'] == category_l[i])]
-    var_x.to_csv(f'category_book{i}.csv')
+# Created the csv files
+if not os.path.exists("All_Categories_csv"):
+    os.makedirs('All_Categories_csv')
+    for i in range(50):
+        var_x = book_information[book_information['category'] == category_list[i]]
+        var_x.to_csv(f'category_book{i}.csv')
+
