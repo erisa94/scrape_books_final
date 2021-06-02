@@ -145,5 +145,5 @@ if not os.path.exists("All_Categories_csv"):
     os.makedirs('All_Categories_csv')
     for i in range(50):
         var_x = book_information[book_information['category'] == category_list[i]]
-        var_x.to_csv(f'category_book{i}.csv')
+        var_x.to_csv(f'category_book{category_list[i]}.csv')
 
